@@ -1,7 +1,11 @@
 // write your code into this file
 #define BLOCK_SIZE 16
 
-
+/*
+  int ** cells         input cells grid
+  int *  cellsOut      ouput cells grid - result of one iteration
+  int    n             grid x/y/z dimension
+ */
 __global__ void solveIteration(int **cells, int *cellsOut, int n) {
   
   int i = threadIdx.x;
@@ -31,16 +35,20 @@ __global__ void solveIteration(int **cells, int *cellsOut, int n) {
  */
 void solveGPU(int **dCells, int n, int iters){
   // TODO alocate array for computing next iteration
-  
+  int *cellsNextIter = NULL;
+  cudaMalloc((void**)&cellsNextIter, n*n*n*sizeof(cellsNextIter[0])); // TODO error checking
   
   for (int i = 0; i < n; n++) {
     // grid and block dimensions setup
     dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
     dim3 dimGrid();
     // kernel invocation
-    solveIteration<<<n, dimBlock>>>(dCells, n);
+    solveIteration<<<n, dimBlock>>>(dCells, cellsNextIter, n);
 
     // TODO swap grids
+    int *tmp = *dCells;
+    *dCells = cellsNextIter;
+    cellsNextIter = tmp; // unnecessary
   }
 	
 }
