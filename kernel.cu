@@ -24,7 +24,7 @@ __global__ void solveIteration(int **cells, int *cellsOut, int n) {
   else if (alive == 5)
     cellsOut[i*n*n + j*n +k] = 1;
   else
-    cellsOut[i*n*n + j*n + k] = (*in)[i*n*n + j*n + k];
+    cellsOut[i*n*n + j*n + k] = (*cells)[i*n*n + j*n + k];
   
 }
 
