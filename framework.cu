@@ -5,6 +5,7 @@
 #include "kernel.cu"
 #include "kernel_CPU.C"
 
+//#define N 4
 #define N 128
 #define ITERS 10
 
@@ -32,6 +33,7 @@ int main(int argc, char **argv){
 	cudaDeviceProp deviceProp;
         cudaGetDeviceProperties(&deviceProp, device);
         printf("Using device %d: \"%s\"\n", device, deviceProp.name);
+	printf("Maximum number of threads per block: %d\n", deviceProp.maxThreadsPerBlock); // added
 
 	// create events for timing
 	cudaEvent_t start, stop;
