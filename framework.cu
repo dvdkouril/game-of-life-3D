@@ -5,7 +5,7 @@
 #include "kernel.cu"
 #include "kernel_CPU.C"
 
-#define N 128
+#define N 256
 #define ITERS 10
 
 void createRandomCells(int *cells, int n) {
