@@ -5,7 +5,6 @@
 #include "kernel.cu"
 #include "kernel_CPU.C"
 
-//#define N 4
 #define N 128
 #define ITERS 10
 
