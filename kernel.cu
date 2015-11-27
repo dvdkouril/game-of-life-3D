@@ -11,14 +11,15 @@ __global__ void solveIteration(int *cells, int *cellsOut, int n) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   int j = blockIdx.y * blockDim.y + threadIdx.y;
   int k = blockIdx.z * blockDim.z + threadIdx.z;
+  __shared__ float cellsBlock[BLOCK_SIZE][BLOCK_SIZE][BLOCK_SIZE];
 
   // searching the neighbourhood for alive cells
   int alive = 0; // number of alive neighbours
   for (int ii = max(i-1, 0); ii <= min(i+1, n-1); ii++)
     for (int jj = max(j-1, 0); jj <= min(j+1, n-1); jj++)
       for (int kk = max(k-1, 0); kk <= min(k+1, n-1); kk++)
-	alive += cells[ii*n*n + jj*n + kk];
-  alive -= cells[i*n*n + j*n + k];
+	alive += cells[ii*n*n + jj*n + kk]; // global memory access
+  alive -= cells[i*n*n + j*n + k]; // global memory access
 
   if (alive < 4 || alive > 5) {
     cellsOut[i*n*n + j*n + k] = 0;
@@ -65,7 +66,6 @@ void solveGPU(int **dCells, int n, int iters){
   //cudaMemcpy(cellsToPrint, *dCells, n*n*n*sizeof(int), cudaMemcpyDeviceToHost);
   //printGrid(cellsToPrint, n);
   
-  //int iterNum = 0; // debug
   for (int i = 0; i < iters; i++) {
     // grid and block dimensions setup
     dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
@@ -85,7 +85,6 @@ void solveGPU(int **dCells, int n, int iters){
     *dCells = cellsNextIter; // setting newly computed iteration to as the result
     cellsNextIter = tmp; // unnecessary
 
-    //iterNum = i; // debug
   }
 
   // debug
@@ -93,10 +92,9 @@ void solveGPU(int **dCells, int n, int iters){
   //int *cellsToPrint = (int*)malloc(n*n*n*sizeof(int));
   //cudaMemcpy(cellsToPrint, *dCells, n*n*n*sizeof(int), cudaMemcpyDeviceToHost);
   //printGrid(cellsToPrint, n);
-  
-  //printf("number of iteration executed: %d", iterNum);
 
   // TODO free allocated memory
+  cudaFree(*dCells); // the memory that I allocated should end up in dCells
 	
 }
 
