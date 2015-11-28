@@ -8,9 +8,9 @@
  */
 __global__ void solveIteration(int *cells, int *cellsOut, int n) {
   
-  int i = blockIdx.x * blockDim.x + threadIdx.x; // global x coord
-  int j = blockIdx.y * blockDim.y + threadIdx.y; // global y coord
-  int k = blockIdx.z * blockDim.z + threadIdx.z; // global z coord
+  int i = blockIdx.x * (blockDim.x-2) + threadIdx.x; // global x coord (IN MEMORY, NOT BLOCK!!!)
+  int j = blockIdx.y * (blockDim.y-2) + threadIdx.y; // global y coord
+  int k = blockIdx.z * (blockDim.z-2) + threadIdx.z; // global z coord
 
   int tx = threadIdx.x;  // block-local x coord
   int ty = threadIdx.y;  // block-local y coord
@@ -19,35 +19,16 @@ __global__ void solveIteration(int *cells, int *cellsOut, int n) {
   int by = blockIdx.y;
   int bz = blockIdx.z;
   // alocating memory with 1 cell border
-  __shared__ int cellsBlock[BLOCK_SIZE + 2][BLOCK_SIZE + 2][BLOCK_SIZE + 2];
+  __shared__ int cellsBlock[BLOCK_SIZE][BLOCK_SIZE][BLOCK_SIZE];
 
   // TODO copy stuff from global memory to shared memory
-  cellsBlock[tx + 1][ty + 1][tz + 1] = cells[i*n*n + j*n + k];
-  // border - this is starting to look pretty fucked up
-  if (tx == 0)
-    cellsBlock[0][ty][tz] = cells[(i-1)*n*n + j*n + k];
-  if (ty == 0)
-    cellsBlock[tx][0][tz] = cells[i*n*n + (j-1)*n + k];
-  if (tz == 0)
-    cellsBlock[tx][ty][0] = cells[i*n*n + j*n + (k - 1)];
-  if (tx == BLOCK_SIZE - 1)
-    cellsBlock[BLOCK_SIZE + 1][ty][tz] = cells[(i+1)*n*n + j*n + k];
-  if (ty == BLOCK_SIZE - 1)
-    cellsBlock[tx][BLOCK_SIZE + 1][tz] = cells[i*n*n + (j+1)*n + k];
-  if (tz == BLOCK_SIZE - 1)
-    cellsBlock[tx][ty][BLOCK_SIZE + 1] = cells[i*n*n + j*n + (k+1)];
-  // corners
-  if ((tx == 0) && (ty == 0))
-    cellsBlock[0][0][tz] = cells[(i-1)*n*n + (j-1)*n + (k+1)];
-  
-  if ((tx == BLOCK_SIZE - 1) && (ty == 0))
-    cellsBlock[BLOCK_SIZE + 1][0][tz] = cells[i*n*n + j*n + (k+1)];
-  
-  if ((tx == BLOCK_SIZE - 1 ) && (ty == BLOCK_SIZE - 1))
-    cellsBlock[0][0][tz] = cells[i*n*n + j*n + (k+1)];
-  
-  if ((tx == 0) && (ty == BLOCK_SIZE - 1))
-    cellsBlock[0][0][tz] = cells[i*n*n + j*n + (k+1)];
+  if ((tx == 0) || (tx == BLOCK_SIZE -1) || (ty == 0) || (ty == BLOCK_SIZE -1) ||
+      (tz == 0) || (tz == BLOCK_SIZE -1))
+  { // threads that are on the border (duplicate border cells from next block)
+    cellsBlock[][][] = cells[];
+  } else {
+    cellsBlock[tx][ty][tz] = cells[i*n*n + j*n + k];
+  }
   
   __syncthreads();
   
