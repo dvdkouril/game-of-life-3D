@@ -8,18 +8,59 @@
  */
 __global__ void solveIteration(int *cells, int *cellsOut, int n) {
   
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
-  int j = blockIdx.y * blockDim.y + threadIdx.y;
-  int k = blockIdx.z * blockDim.z + threadIdx.z;
-  __shared__ float cellsBlock[BLOCK_SIZE][BLOCK_SIZE][BLOCK_SIZE];
+  int i = blockIdx.x * blockDim.x + threadIdx.x; // global x coord
+  int j = blockIdx.y * blockDim.y + threadIdx.y; // global y coord
+  int k = blockIdx.z * blockDim.z + threadIdx.z; // global z coord
 
-  // searching the neighbourhood for alive cells
-  int alive = 0; // number of alive neighbours
-  for (int ii = max(i-1, 0); ii <= min(i+1, n-1); ii++)
-    for (int jj = max(j-1, 0); jj <= min(j+1, n-1); jj++)
-      for (int kk = max(k-1, 0); kk <= min(k+1, n-1); kk++)
-	alive += cells[ii*n*n + jj*n + kk]; // global memory access
-  alive -= cells[i*n*n + j*n + k]; // global memory access
+  int tx = threadIdx.x;  // block-local x coord
+  int ty = threadIdx.y;  // block-local y coord
+  int tz = threadIdx.z;  // block-local z coord
+  int bx = blockIdx.x;
+  int by = blockIdx.y;
+  int bz = blockIdx.z;
+  // alocating memory with 1 cell border
+  __shared__ int cellsBlock[BLOCK_SIZE + 2][BLOCK_SIZE + 2][BLOCK_SIZE + 2];
+
+  // TODO copy stuff from global memory to shared memory
+  cellsBlock[tx + 1][ty + 1][tz + 1] = cells[i*n*n + j*n + k];
+  // border - this is starting to look pretty fucked up
+  if (tx == 0)
+    cellsBlock[0][ty][tz] = cells[(i-1)*n*n + j*n + k];
+  if (ty == 0)
+    cellsBlock[tx][0][tz] = cells[i*n*n + (j-1)*n + k];
+  if (tz == 0)
+    cellsBlock[tx][ty][0] = cells[i*n*n + j*n + (k - 1)];
+  if (tx == BLOCK_SIZE - 1)
+    cellsBlock[BLOCK_SIZE + 1][ty][tz] = cells[(i+1)*n*n + j*n + k];
+  if (ty == BLOCK_SIZE - 1)
+    cellsBlock[tx][BLOCK_SIZE + 1][tz] = cells[i*n*n + (j+1)*n + k];
+  if (tz == BLOCK_SIZE - 1)
+    cellsBlock[tx][ty][BLOCK_SIZE + 1] = cells[i*n*n + j*n + (k+1)];
+  // corners
+  if ((tx == 0) && (ty == 0))
+    cellsBlock[0][0][tz] = cells[(i-1)*n*n + (j-1)*n + (k+1)];
+  
+  if ((tx == BLOCK_SIZE - 1) && (ty == 0))
+    cellsBlock[BLOCK_SIZE + 1][0][tz] = cells[i*n*n + j*n + (k+1)];
+  
+  if ((tx == BLOCK_SIZE - 1 ) && (ty == BLOCK_SIZE - 1))
+    cellsBlock[0][0][tz] = cells[i*n*n + j*n + (k+1)];
+  
+  if ((tx == 0) && (ty == BLOCK_SIZE - 1))
+    cellsBlock[0][0][tz] = cells[i*n*n + j*n + (k+1)];
+  
+  __syncthreads();
+  
+  // TODO use stuff from shared memory when computing alive neighbours
+  int alive = 0;
+  for (int ii = max(tx - 1, 0); ii <= min(tx + 1, BLOCK_SIZE - 1); ii++) {
+    for (int jj = max(ty - 1, 0); jj <= min(ty + 1, BLOCK_SIZE - 1); jj++) {
+      for (int kk = max(tz - 1, 0); kk <= min(tz + 1, BLOCK_SIZE - 1); kk++) {
+	alive += cellsBlock[ii][jj][kk];
+      }
+    }
+  }
+  alive -= cellsBlock[tx][ty][tz];
 
   if (alive < 4 || alive > 5) {
     cellsOut[i*n*n + j*n + k] = 0;
@@ -69,7 +110,9 @@ void solveGPU(int **dCells, int n, int iters){
   for (int i = 0; i < iters; i++) {
     // grid and block dimensions setup
     dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-    dim3 dimGrid(n / BLOCK_SIZE, n / BLOCK_SIZE, n / BLOCK_SIZE);
+    //dim3 dimGrid(n / BLOCK_SIZE, n / BLOCK_SIZE, n / BLOCK_SIZE);
+    int blocksNum = (int)ceil(n / (float)(BLOCK_SIZE - 2));
+    dim3 dimGrid(blocksNum, blocksNum, blocksNum);
     
     // kernel invocation
     solveIteration<<<dimGrid, dimBlock>>>(*dCells, cellsNextIter, n);
