@@ -1,7 +1,6 @@
 // write your code into this file
-#define BLOCK_SIZE 16
-
-
+//#define BLOCK_SIZE 16
+#define BLOCK_SIZE 8 // debug
 
 /*
   int ** cells         input cells grid
@@ -22,36 +21,49 @@ __global__ void solveIteration(int *cells, int *cellsOut, int n) {
   __shared__ int cellsBlock[BLOCK_SIZE][BLOCK_SIZE][BLOCK_SIZE];
 
   // TODO copy stuff from global memory to shared memory
-  cellsBlock[tx][ty][tz] = cells[i*n*n + j*n + k];
+  if ((i <= n) && (j <= n) && (k <= n)) {
+    cellsBlock[tx][ty][tz] = cells[i*n*n + j*n + k];
+  }
   
   __syncthreads();
+
+  // DEBUG AS FUCK
+  /*printf("SHARED BLOCK MEMORY");
+  for (int a = 0; a < BLOCK_SIZE; a++) {
+    for (int b = 0; b < BLOCK_SIZE; b++) {
+      for (int c = 0; c < BLOCK_SIZE; c++) {
+	printf("%d ", cellsBlock[a][b][c]);
+      }
+      printf("\n");
+    }
+    printf("\n\n");
+    }*/
   
   // TODO use stuff from shared memory when computing alive neighbours
   if ((i <= n) && (j <= n) && (k <= n)) {
-  if ((tx > 0) && (tx < BLOCK_SIZE - 2) &&
-      (ty > 0) && (ty < BLOCK_SIZE - 2) &&
-      (tz > 0) && (tz < BLOCK_SIZE - 2)) {
-    
-    int alive = 0;
-    for (int ii = max(tx - 1, 0); ii <= min(tx + 1, BLOCK_SIZE - 1); ii++) {
-      for (int jj = max(ty - 1, 0); jj <= min(ty + 1, BLOCK_SIZE - 1); jj++) {
-	for (int kk = max(tz - 1, 0); kk <= min(tz + 1, BLOCK_SIZE - 1); kk++) {
-	  alive += cellsBlock[ii][jj][kk];
+    if ((tx > 0) && (tx < BLOCK_SIZE - 2) &&
+	(ty > 0) && (ty < BLOCK_SIZE - 2) &&
+	(tz > 0) && (tz < BLOCK_SIZE - 2)) {
+      int alive = 0;
+      for (int ii = max(tx - 1, 0); ii <= min(tx + 1, BLOCK_SIZE - 1); ii++) {
+	for (int jj = max(ty - 1, 0); jj <= min(ty + 1, BLOCK_SIZE - 1); jj++) {
+	  for (int kk = max(tz - 1, 0); kk <= min(tz + 1, BLOCK_SIZE - 1); kk++) {
+	    alive += cellsBlock[ii][jj][kk];
+	  }
 	}
       }
-    }
-    alive -= cellsBlock[tx][ty][tz];
+      alive -= cellsBlock[tx][ty][tz];
 
-    if (alive < 4 || alive > 5) {
-      //cellsOut[i*n*n + j*n + k] = 0;
-      cellsOut[0] = 0;
-    } else if (alive == 5) {
-      cellsOut[0] = 1;
-    } else {
-      cellsOut[0] = cells[0];
-    }
+      if (alive < 4 || alive > 5) {
+	cellsOut[i*n*n + j*n + k] = 0;
+	//cellsOut[0] = 0;
+      } else if (alive == 5) {
+	cellsOut[i*n*n + j*n + k] = 1;
+      } else {
+	cellsOut[i*n*n + j*n + k] = cells[i*n*n + j*n + k];
+      }
 
-  }
+    }
   }
   
   
@@ -60,8 +72,8 @@ __global__ void solveIteration(int *cells, int *cellsOut, int n) {
 // debug
 void printGrid(int *cells, int n) {
   printf("\n");
-  //for (int i = 0; i < n; i++) {
-  int i = 0;
+  for (int i = 0; i < n; i++) {
+  //int i = 0;
     for (int j = 0; j < n; j++) {
       for (int k = 0; k < n; k++) {
 	printf("%d ", cells[i*n*n + j*n + k]);
@@ -69,7 +81,7 @@ void printGrid(int *cells, int n) {
       printf("\n");
     }
     printf("\n\n");
-    //}
+  }
 }
 
 /* 
@@ -86,11 +98,11 @@ void solveGPU(int **dCells, int n, int iters){
   }
 
   // debug
-  //printf("first slide of input");
-  //int *cellsToPrint = (int*)malloc(n*n*n*sizeof(int));
-  //cudaMemcpy(cellsToPrint, cellsNextIter, n*n*n*sizeof(int), cudaMemcpyDeviceToHost);
-  //cudaMemcpy(cellsToPrint, *dCells, n*n*n*sizeof(int), cudaMemcpyDeviceToHost);
-  //printGrid(cellsToPrint, n);
+  printf("first slide of input");
+  int *cellsToPrint = (int*)malloc(n*n*n*sizeof(int));
+  cudaMemcpy(cellsToPrint, cellsNextIter, n*n*n*sizeof(int), cudaMemcpyDeviceToHost);
+  cudaMemcpy(cellsToPrint, *dCells, n*n*n*sizeof(int), cudaMemcpyDeviceToHost);
+  printGrid(cellsToPrint, n);
   
   for (int i = 0; i < iters; i++) {
     // grid and block dimensions setup
@@ -116,10 +128,10 @@ void solveGPU(int **dCells, int n, int iters){
   }
 
   // debug
-  //printf("first slide of output");
+  printf("first slide of output");
   //int *cellsToPrint = (int*)malloc(n*n*n*sizeof(int));
-  //cudaMemcpy(cellsToPrint, *dCells, n*n*n*sizeof(int), cudaMemcpyDeviceToHost);
-  //printGrid(cellsToPrint, n);
+  cudaMemcpy(cellsToPrint, *dCells, n*n*n*sizeof(int), cudaMemcpyDeviceToHost);
+  printGrid(cellsToPrint, n);
 
   // TODO free allocated memory
   cudaFree(*dCells); // the memory that I allocated should end up in dCells

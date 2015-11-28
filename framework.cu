@@ -1,19 +1,34 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <cuda_runtime.h>
+#include <time.h> // debug for srand parameter
 
 #include "kernel.cu"
 #include "kernel_CPU.C"
 
-#define N 128
+#define N 4
 #define ITERS 1
 
 void createRandomCells(int *cells, int n) {
+  srand(time(NULL));
 	for (int i = 0; i < n*n*n; i++)
 		if ((float)rand() / (float)RAND_MAX > 0.5)
 			cells[i] = 1;
 		else
 			cells[i] = 0;
+}
+
+// debug
+void printResult(int *cells, int n) {
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < n; j++) {
+      for (int k = 0; k < n; k++) {
+	printf("%d ", cells[i*n*n + j*n + k]);
+      }
+      printf("\n");
+    }
+    printf("\n\n");
+  }
 }
 
 int main(int argc, char **argv){
@@ -61,6 +76,8 @@ int main(int argc, char **argv){
         cudaEventElapsedTime(&time, start, stop);
         printf("CPU performance: %f megacells/s\n",
                 float(N*N*N)*float(ITERS)/time/1e3f);
+
+	printResult(cells, N);
 
 	// dummy copy, just to awake GPU
         cudaMemcpy(cellsGPU, dCells, N*N*N*sizeof(dCells[0]), cudaMemcpyDeviceToHost);
