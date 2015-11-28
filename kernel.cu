@@ -1,5 +1,7 @@
 // write your code into this file
-#define BLOCK_SIZE 8
+#define BLOCK_SIZE 16
+
+
 
 /*
   int ** cells         input cells grid
@@ -15,41 +17,43 @@ __global__ void solveIteration(int *cells, int *cellsOut, int n) {
   int tx = threadIdx.x;  // block-local x coord
   int ty = threadIdx.y;  // block-local y coord
   int tz = threadIdx.z;  // block-local z coord
-  int bx = blockIdx.x;
-  int by = blockIdx.y;
-  int bz = blockIdx.z;
+  
   // alocating memory with 1 cell border
   __shared__ int cellsBlock[BLOCK_SIZE][BLOCK_SIZE][BLOCK_SIZE];
 
   // TODO copy stuff from global memory to shared memory
-  if ((tx == 0) || (tx == BLOCK_SIZE -1) || (ty == 0) || (ty == BLOCK_SIZE -1) ||
-      (tz == 0) || (tz == BLOCK_SIZE -1))
-  { // threads that are on the border (duplicate border cells from next block)
-    cellsBlock[][][] = cells[];
-  } else {
-    cellsBlock[tx][ty][tz] = cells[i*n*n + j*n + k];
-  }
+  cellsBlock[tx][ty][tz] = cells[i*n*n + j*n + k];
   
   __syncthreads();
   
   // TODO use stuff from shared memory when computing alive neighbours
-  int alive = 0;
-  for (int ii = max(tx - 1, 0); ii <= min(tx + 1, BLOCK_SIZE - 1); ii++) {
-    for (int jj = max(ty - 1, 0); jj <= min(ty + 1, BLOCK_SIZE - 1); jj++) {
-      for (int kk = max(tz - 1, 0); kk <= min(tz + 1, BLOCK_SIZE - 1); kk++) {
-	alive += cellsBlock[ii][jj][kk];
+  if ((i <= n) && (j <= n) && (k <= n)) {
+  if ((tx > 0) && (tx < BLOCK_SIZE - 2) &&
+      (ty > 0) && (ty < BLOCK_SIZE - 2) &&
+      (tz > 0) && (tz < BLOCK_SIZE - 2)) {
+    
+    int alive = 0;
+    for (int ii = max(tx - 1, 0); ii <= min(tx + 1, BLOCK_SIZE - 1); ii++) {
+      for (int jj = max(ty - 1, 0); jj <= min(ty + 1, BLOCK_SIZE - 1); jj++) {
+	for (int kk = max(tz - 1, 0); kk <= min(tz + 1, BLOCK_SIZE - 1); kk++) {
+	  alive += cellsBlock[ii][jj][kk];
+	}
       }
     }
-  }
-  alive -= cellsBlock[tx][ty][tz];
+    alive -= cellsBlock[tx][ty][tz];
 
-  if (alive < 4 || alive > 5) {
-    cellsOut[i*n*n + j*n + k] = 0;
-  } else if (alive == 5) {
-    cellsOut[i*n*n + j*n + k] = 1;
-  } else {
-    cellsOut[i*n*n + j*n + k] = cells[i*n*n + j*n + k];
+    if (alive < 4 || alive > 5) {
+      //cellsOut[i*n*n + j*n + k] = 0;
+      cellsOut[0] = 0;
+    } else if (alive == 5) {
+      cellsOut[0] = 1;
+    } else {
+      cellsOut[0] = cells[0];
+    }
+
   }
+  }
+  
   
 }
 
