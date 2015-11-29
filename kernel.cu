@@ -48,14 +48,14 @@ __global__ void solveIteration(int *cells, int *cellsOut, int n) {
 
   //printf("(%d, %d, %d)\n", i, j, k);
   // TODO copy stuff from global memory to shared memory
-  if ((i <= n - 1) && (j <= n - 1) && (k <= n - 1)) {
+  //if ((i <= n - 1) && (j <= n - 1) && (k <= n - 1)) {
     if ((i < 0) || (j < 0) || (k < 0) ||
-	(i > BLOCK_SIZE - 1) || (j > BLOCK_SIZE - 1) || (k > BLOCK_SIZE - 1)) {
+	(i > n - 1) || (j > n - 1) || (k > n - 1)) {
       cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE)] = 0;
     } else {
       cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE)] = cells[cellId];
     }
-  }
+    //}
   
   __syncthreads();
   
@@ -74,6 +74,11 @@ __global__ void solveIteration(int *cells, int *cellsOut, int n) {
       }
       alive -= cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE)];
 
+      // debug
+      /*if ((i == 0) && (j == 0) && (k == 7)) {
+	printf("(%d, %d, %d), alive = %d\n", i, j, k, alive);
+	}*/
+	
       if (alive < 4 || alive > 5) {
 	//cellsOut[cellId] = alive;
 	cellsOut[cellId] = 0;
