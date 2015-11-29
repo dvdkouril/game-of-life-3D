@@ -1,6 +1,6 @@
 // write your code into this file
 //#define BLOCK_SIZE 8
-#define BLOCK_SIZE_X 16
+#define BLOCK_SIZE_X 8
 #define BLOCK_SIZE_Y 8
 #define BLOCK_SIZE_Z 8
 //#define BLOCK_SIZE 8 // debug
@@ -37,16 +37,11 @@ __global__ void solveIteration(int *cells, int *cellsOut, int n) {
   __shared__ int cellsBlock[BLOCK_SIZE_X * BLOCK_SIZE_Y * BLOCK_SIZE_Z];
 
   // TODO copy stuff from global memory to shared memory
-  //if ((i <= n - 1) && (j <= n - 1) && (k <= n - 1)) {
-    if ((i < 0) || (j < 0) || (k < 0) ||
-	(i > n - 1) || (j > n - 1) || (k > n - 1)) {
-      //cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE)] = 0;
-      cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE_X, BLOCK_SIZE_Y, BLOCK_SIZE_Z)] = 0;
-    } else {
-      //cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE)] = cells[cellId];
-      cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE_X, BLOCK_SIZE_Y, BLOCK_SIZE_Z)] = cells[cellId];
-    }
-    //}
+  if ((i < 0) || (j < 0) || (k < 0) || (i > n - 1) || (j > n - 1) || (k > n - 1)) {
+    cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE_X, BLOCK_SIZE_Y, BLOCK_SIZE_Z)] = 0;
+  } else {
+    cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE_X, BLOCK_SIZE_Y, BLOCK_SIZE_Z)] = cells[cellId];
+  }
   
   __syncthreads();
   
@@ -56,19 +51,11 @@ __global__ void solveIteration(int *cells, int *cellsOut, int n) {
 	(ty > 0) && (ty < BLOCK_SIZE_Y - 1) &&
 	(tz > 0) && (tz < BLOCK_SIZE_Z - 1)) {
       int alive = 0;
-      for (int ii = max(tx - 1, 0); ii <= min(tx + 1, BLOCK_SIZE_X - 1); ii++) {
-	for (int jj = max(ty - 1, 0); jj <= min(ty + 1, BLOCK_SIZE_Y - 1); jj++) {
-	  for (int kk = max(tz - 1, 0); kk <= min(tz + 1, BLOCK_SIZE_Z - 1); kk++) {
+      for (int ii = max(tx - 1, 0); ii <= min(tx + 1, BLOCK_SIZE_X - 1); ii++)
+	for (int jj = max(ty - 1, 0); jj <= min(ty + 1, BLOCK_SIZE_Y - 1); jj++) 
+	  for (int kk = max(tz - 1, 0); kk <= min(tz + 1, BLOCK_SIZE_Z - 1); kk++)
 	    alive += cellsBlock[linearize(ii, jj, kk, BLOCK_SIZE_X, BLOCK_SIZE_Y, BLOCK_SIZE_Z)];
-	  }
-	}
-      }
       alive -= cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE_X, BLOCK_SIZE_Y, BLOCK_SIZE_Z)];
-
-      // debug
-      /*if ((i == 0) && (j == 0) && (k == 7)) {
-	printf("(%d, %d, %d), alive = %d\n", i, j, k, alive);
-	}*/
 	
       if (alive < 4 || alive > 5) {
 	cellsOut[cellId] = 0;
@@ -115,7 +102,6 @@ void solveGPU(int **dCells, int n, int iters){
   for (int i = 0; i < iters; i++) {
     // grid and block dimensions setup
     dim3 dimBlock(BLOCK_SIZE_X, BLOCK_SIZE_Y, BLOCK_SIZE_Z);
-    //dim3 dimGrid(n / BLOCK_SIZE, n / BLOCK_SIZE, n / BLOCK_SIZE);
     int blocksNumX = (int)ceil(n / (float)(BLOCK_SIZE_X - 2));
     int blocksNumY = (int)ceil(n / (float)(BLOCK_SIZE_Y - 2));
     int blocksNumZ = (int)ceil(n / (float)(BLOCK_SIZE_Z - 2));
