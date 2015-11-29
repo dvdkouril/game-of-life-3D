@@ -6,8 +6,8 @@
 #include "kernel.cu"
 #include "kernel_CPU.C"
 
-#define N 128
-#define ITERS 1
+#define N 256
+#define ITERS 10
 
 void createRandomCells(int *cells, int n) {
   srand(time(NULL));
@@ -48,6 +48,7 @@ int main(int argc, char **argv){
         cudaGetDeviceProperties(&deviceProp, device);
         printf("Using device %d: \"%s\"\n", device, deviceProp.name);
 	printf("Maximum number of threads per block: %d\n", deviceProp.maxThreadsPerBlock); // added
+	printf("Maximum shared memory per block: %d\n", (int)deviceProp.sharedMemPerBlock);
 
 	// create events for timing
 	cudaEvent_t start, stop;

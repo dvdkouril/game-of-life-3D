@@ -1,15 +1,19 @@
 // write your code into this file
-#define BLOCK_SIZE 8
+//#define BLOCK_SIZE 8
+#define BLOCK_SIZE_X 16
+#define BLOCK_SIZE_Y 8
+#define BLOCK_SIZE_Z 8
 //#define BLOCK_SIZE 8 // debug
 
 /*
   This needs to be uniform for all memory accesses!
-  WELL FUCK...
  */
 __device__ int linearize(int x, int y, int z, int n) {
-  //return x*n*n + y*n + z;
-  // or
   return z*n*n + y*n + x;
+}
+
+__device__ int linearize(int x, int y, int z, int n_x, int n_y, int n_z) {
+  return z*n_x*n_y + y*n_x + x;
 }
 
 /*
@@ -26,34 +30,21 @@ __global__ void solveIteration(int *cells, int *cellsOut, int n) {
   int tx = threadIdx.x;  // block-local x coord
   int ty = threadIdx.y;  // block-local y coord
   int tz = threadIdx.z;  // block-local z coord
-
-  /*if ((i < 0) || (j < 0) || (k < 0)) { // debug
-    printf("(%d,%d,%d)\n", i, j, k);
-    }*/
   
-  //int cellId = i*n*n + j*n + k;
   int cellId = linearize(i, j, k, n);
-
-  // debug
-  /*if ((i == 11) && (j == 11) && (k == 0)) {
-    printf("block[%d, %d, %d], thread[%d, %d, %d] => (%d, %d, %d)\n",
-	   blockIdx.x, blockIdx.y, blockIdx.z,
-	   threadIdx.x, threadIdx.y, threadIdx.z,
-	   i, j, k);
-	   }*/
   
   // alocating memory with 1 cell border
-  //__shared__ int cellsBlock[BLOCK_SIZE][BLOCK_SIZE][BLOCK_SIZE];
-  __shared__ int cellsBlock[BLOCK_SIZE * BLOCK_SIZE * BLOCK_SIZE];
+  __shared__ int cellsBlock[BLOCK_SIZE_X * BLOCK_SIZE_Y * BLOCK_SIZE_Z];
 
-  //printf("(%d, %d, %d)\n", i, j, k);
   // TODO copy stuff from global memory to shared memory
   //if ((i <= n - 1) && (j <= n - 1) && (k <= n - 1)) {
     if ((i < 0) || (j < 0) || (k < 0) ||
 	(i > n - 1) || (j > n - 1) || (k > n - 1)) {
-      cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE)] = 0;
+      //cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE)] = 0;
+      cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE_X, BLOCK_SIZE_Y, BLOCK_SIZE_Z)] = 0;
     } else {
-      cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE)] = cells[cellId];
+      //cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE)] = cells[cellId];
+      cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE_X, BLOCK_SIZE_Y, BLOCK_SIZE_Z)] = cells[cellId];
     }
     //}
   
@@ -61,18 +52,18 @@ __global__ void solveIteration(int *cells, int *cellsOut, int n) {
   
   // TODO use stuff from shared memory when computing alive neighbours
   if ((i >= 0) && (j >= 0) && (k >= 0)&& (i <= n - 1) && (j <= n - 1) && (k <= n - 1)) {
-    if ((tx > 0) && (tx < BLOCK_SIZE - 1) &&
-	(ty > 0) && (ty < BLOCK_SIZE - 1) &&
-	(tz > 0) && (tz < BLOCK_SIZE - 1)) {
+    if ((tx > 0) && (tx < BLOCK_SIZE_X - 1) &&
+	(ty > 0) && (ty < BLOCK_SIZE_Y - 1) &&
+	(tz > 0) && (tz < BLOCK_SIZE_Z - 1)) {
       int alive = 0;
-      for (int ii = max(tx - 1, 0); ii <= min(tx + 1, BLOCK_SIZE - 1); ii++) {
-	for (int jj = max(ty - 1, 0); jj <= min(ty + 1, BLOCK_SIZE - 1); jj++) {
-	  for (int kk = max(tz - 1, 0); kk <= min(tz + 1, BLOCK_SIZE - 1); kk++) {
-	    alive += cellsBlock[linearize(ii, jj, kk, BLOCK_SIZE)];
+      for (int ii = max(tx - 1, 0); ii <= min(tx + 1, BLOCK_SIZE_X - 1); ii++) {
+	for (int jj = max(ty - 1, 0); jj <= min(ty + 1, BLOCK_SIZE_Y - 1); jj++) {
+	  for (int kk = max(tz - 1, 0); kk <= min(tz + 1, BLOCK_SIZE_Z - 1); kk++) {
+	    alive += cellsBlock[linearize(ii, jj, kk, BLOCK_SIZE_X, BLOCK_SIZE_Y, BLOCK_SIZE_Z)];
 	  }
 	}
       }
-      alive -= cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE)];
+      alive -= cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE_X, BLOCK_SIZE_Y, BLOCK_SIZE_Z)];
 
       // debug
       /*if ((i == 0) && (j == 0) && (k == 7)) {
@@ -80,15 +71,11 @@ __global__ void solveIteration(int *cells, int *cellsOut, int n) {
 	}*/
 	
       if (alive < 4 || alive > 5) {
-	//cellsOut[cellId] = alive;
 	cellsOut[cellId] = 0;
       } else if (alive == 5) {
 	cellsOut[cellId] = 1;
-	//cellsOut[cellId] = alive;
       } else {
-	cellsOut[cellId] = cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE)];
-	//cellsOut[cellId] = alive;
-	//cellsOut[i*n*n + j*n + k] = cells[i*n*n + j*n + k];
+	cellsOut[cellId] = cellsBlock[linearize(tx, ty, tz, BLOCK_SIZE_X, BLOCK_SIZE_Y, BLOCK_SIZE_Z)];
       }
 
     }
@@ -124,23 +111,19 @@ void solveGPU(int **dCells, int n, int iters){
   if (cudaMalloc((void**)&cellsNextIter, n*n*n*sizeof(cellsNextIter[0])) != cudaSuccess) {
     printf("Device memory allocation error\n");
   }
-
-  /*printf("first slide of input");
-  int *cellsToPrint = (int*)malloc(n*n*n*sizeof(int));
-  cudaMemcpy(cellsToPrint, cellsNextIter, n*n*n*sizeof(int), cudaMemcpyDeviceToHost);
-  cudaMemcpy(cellsToPrint, *dCells, n*n*n*sizeof(int), cudaMemcpyDeviceToHost);
-  printGrid(cellsToPrint, n);*/
   
   for (int i = 0; i < iters; i++) {
     // grid and block dimensions setup
-    dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+    dim3 dimBlock(BLOCK_SIZE_X, BLOCK_SIZE_Y, BLOCK_SIZE_Z);
     //dim3 dimGrid(n / BLOCK_SIZE, n / BLOCK_SIZE, n / BLOCK_SIZE);
-    int blocksNum = (int)ceil(n / (float)(BLOCK_SIZE - 2));
-    dim3 dimGrid(blocksNum, blocksNum, blocksNum);
+    int blocksNumX = (int)ceil(n / (float)(BLOCK_SIZE_X - 2));
+    int blocksNumY = (int)ceil(n / (float)(BLOCK_SIZE_Y - 2));
+    int blocksNumZ = (int)ceil(n / (float)(BLOCK_SIZE_Z - 2));
+    dim3 dimGrid(blocksNumX, blocksNumY, blocksNumZ);
 
     // debug
-    printf("grid size: %dx%dx%d\n", blocksNum, blocksNum, blocksNum);
-    printf("block size: %dx%dx%d\n", BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+    //printf("grid size: %dx%dx%d\n", blocksNum, blocksNum, blocksNum);
+    //printf("block size: %dx%dx%d\n", BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
     
     // kernel invocation
     solveIteration<<<dimGrid, dimBlock>>>(*dCells, cellsNextIter, n);
@@ -157,15 +140,6 @@ void solveGPU(int **dCells, int n, int iters){
     cellsNextIter = tmp; // unnecessary
 
   }
-
-  // debug
-  /*printf("first slide of output");
-  //int *cellsToPrint = (int*)malloc(n*n*n*sizeof(int));
-  cudaMemcpy(cellsToPrint, *dCells, n*n*n*sizeof(int), cudaMemcpyDeviceToHost);
-  printGrid(cellsToPrint, n);*/
-  
-  // TODO free allocated memory
-  //cudaFree(*dCells); // the memory that I allocated should end up in dCells
-	
+  	
 }
 
