@@ -6,7 +6,7 @@
 #include "kernel.cu"
 #include "kernel_CPU.C"
 
-#define N 4
+#define N 64
 #define ITERS 1
 
 void createRandomCells(int *cells, int n) {
@@ -77,7 +77,7 @@ int main(int argc, char **argv){
         printf("CPU performance: %f megacells/s\n",
                 float(N*N*N)*float(ITERS)/time/1e3f);
 
-	printResult(cells, N);
+	//printResult(cells, N); // debug
 
 	// dummy copy, just to awake GPU
         cudaMemcpy(cellsGPU, dCells, N*N*N*sizeof(dCells[0]), cudaMemcpyDeviceToHost);
